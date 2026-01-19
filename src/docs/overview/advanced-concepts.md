@@ -1,18 +1,85 @@
----
-title: Advanced Usage
-description: A guide that outlines the advanced concepts of Railway.
----
+from flask import Flask, request
+from twilio.twiml.voice_response import VoiceResponse, Gather
+import os
 
-There are a lot of advanced concepts of Railway that can help you build your applications better. This document will cover some of these concepts like build and deploy options, networking, observability, and other integrations.
+app = Flask(__name__)
 
-## Build and Deploy Options
+@app.route('/')
+def home():
+    return '''
+    <html>
+        <head>
+            <title>VoiceFlow AI - LIVE!</title>
+            <style>
+                body { 
+                    font-family: Arial; 
+                    text-align: center;
+                    padding: 50px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                }
+                .card {
+                    background: white;
+                    padding: 40px;
+                    border-radius: 15px;
+                    max-width: 600px;
+                    margin: 0 auto;
+                }
+                h1 { color: #667eea; }
+                .success { 
+                    background: #10b981; 
+                    color: white; 
+                    padding: 20px; 
+                    border-radius: 10px;
+                    margin: 20px 0;
+                    font-size: 24px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h1>🎉 VoiceFlow AI is LIVE!</h1>
+                <div class="success">✅ Your System is Working!</div>
+                <h2>System Status:</h2>
+                <p>✅ Server Running</p>
+                <p>✅ Ready to Accept Calls</p>
+                <h3>Call your Twilio number to test!</h3>
+            </div>
+        </body>
+    </html>
+    '''
 
-Railway applies many defaults to your build and deploy configurations that work fine for most scenarios. Changing these defaults could help tune Railway better to your use-case and make it easier on your team.
+@app.route('/voice/incoming', methods=['POST'])
+def incoming_call():
+    response = VoiceResponse()
+    response.say("Hello! Thank you for calling VoiceFlow AI. This is your AI assistant speaking. How can I help you today?", voice='Polly.Joanna')
+    
+    gather = Gather(
+        input='speech',
+        action='/voice/process',
+        method='POST',
+        speechTimeout='auto'
+    )
+    response.append(gather)
+    
+    return str(response)
 
-### Build Options
+@app.route('/voice/process', methods=['POST'])
+def process_speech():
+    speech = request.values.get('SpeechResult', '')
+    
+    response = VoiceResponse()
+    response.say(f"I heard you say: {speech}. Thank you for testing VoiceFlow AI. This system is working perfectly. Goodbye!", voice='Polly.Joanna')
+    response.hangup()
+    
+    return str(response)
 
-Under the hood, Railway uses <a href="https://railpack.com" target="_blank">Railpack</a> to package your code into a container image that we then deploy to our infrastructure, with zero configuration for most workloads. For advanced projects, you might need to configure some of these defaults. You can do this by going to your Service > Settings > Build, and underneath that, Deploy. Here are three things you might want to configure:
+@app.route('/health')
+def health():
+    return {'status': 'healthy', 'message': 'VoiceFlow AI is running!'}
 
+if __name__ == '__main__':
+    port = int(os.getenv('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
 - **Custom Build Command**: This is the command that will be ran to build your final application. Railpack will find the best command for this, usually `npm run build` for JS-based projects, `cargo build --release` for Rust projects, and more. If your application needs to trigger something else to build your project, customize that command here.
 - [**Pre-Deploy Command**](https://docs.railway.com/guides/pre-deploy-command): These are one or more commands that will be ran before running the main start command. A common use for this is database migrations. If your application needs to run a command before starting your main application, put that in a Pre-Deploy Command.
 - **Custom Start Command**: This is the command that will actually run your application. Defaulted as `npm run start` for JS-based applications. If you need to start your application in a way that's different than expected, change that here.
